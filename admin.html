@@ -1,0 +1,701 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin — Día del Psicólogo</title>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500&family=DM+Mono&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0f0f18;
+    --surface: #161622;
+    --border: rgba(255,255,255,0.08);
+    --text: rgba(255,255,255,0.85);
+    --muted: rgba(255,255,255,0.35);
+    --accent: #9b7fe8;
+    --danger: #e05c5c;
+    --success: #5cbb6e;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    min-height: 100vh;
+  }
+
+  /* LOGIN */
+  #login-screen {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+  }
+
+  .login-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 48px 40px;
+    width: 100%;
+    max-width: 380px;
+    text-align: center;
+  }
+
+  .login-card h1 {
+    font-size: 20px;
+    font-weight: 500;
+    margin-bottom: 6px;
+  }
+
+  .login-card p {
+    font-size: 13px;
+    color: var(--muted);
+    margin-bottom: 32px;
+  }
+
+  input[type="email"], input[type="password"] {
+    width: 100%;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 16px;
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px;
+    outline: none;
+    margin-bottom: 12px;
+    transition: border-color 0.2s;
+  }
+
+  input:focus { border-color: rgba(155,127,232,0.4); }
+  input::placeholder { color: var(--muted); }
+
+  .btn-primary {
+    width: 100%;
+    padding: 13px;
+    border-radius: 10px;
+    border: none;
+    background: var(--accent);
+    color: #fff;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: opacity 0.2s;
+    margin-top: 4px;
+  }
+
+  .btn-primary:hover { opacity: 0.85; }
+  .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  #login-error {
+    font-size: 12px;
+    color: var(--danger);
+    margin-top: 12px;
+    min-height: 18px;
+  }
+
+  /* ADMIN PANEL */
+  #admin-panel { display: none; }
+
+  nav {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 28px;
+  }
+
+  nav h1 { font-size: 15px; font-weight: 500; }
+  nav span { font-size: 12px; color: var(--muted); }
+
+  .logout-btn {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    padding: 6px 14px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 12px;
+    font-family: 'DM Sans', sans-serif;
+    transition: all 0.2s;
+  }
+  .logout-btn:hover { border-color: var(--danger); color: var(--danger); }
+
+  .panel-body {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 32px 24px;
+    display: grid;
+    gap: 24px;
+  }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 24px;
+  }
+
+  .card-title {
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 16px;
+  }
+
+  /* Question editor */
+  #current-question {
+    font-size: 18px;
+    color: var(--text);
+    margin-bottom: 16px;
+    font-style: italic;
+    min-height: 28px;
+    opacity: 0.8;
+  }
+
+  .input-row {
+    display: flex;
+    gap: 10px;
+  }
+
+  .input-row input {
+    flex: 1;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 11px 16px;
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px;
+    outline: none;
+    transition: border-color 0.2s;
+    margin-bottom: 0;
+  }
+
+  .input-row input:focus { border-color: rgba(155,127,232,0.4); }
+  .input-row input::placeholder { color: var(--muted); }
+
+  .btn-sm {
+    padding: 11px 18px;
+    border-radius: 10px;
+    border: none;
+    background: var(--accent);
+    color: #fff;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: opacity 0.2s;
+  }
+
+  .btn-sm:hover { opacity: 0.85; }
+
+  .btn-danger {
+    background: rgba(224,92,92,0.15);
+    border: 1px solid rgba(224,92,92,0.3);
+    color: var(--danger);
+    padding: 8px 14px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 12px;
+    font-family: 'DM Sans', sans-serif;
+    transition: all 0.2s;
+  }
+
+  .btn-danger:hover { background: rgba(224,92,92,0.25); }
+
+  /* Stats */
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+
+  .stat-item {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px;
+    text-align: center;
+  }
+
+  .stat-num {
+    font-size: 24px;
+    font-weight: 500;
+    line-height: 1;
+    margin-bottom: 4px;
+  }
+
+  .stat-label {
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 0.06em;
+  }
+
+  /* Controls row */
+  .controls-row {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    align-items: center;
+    margin-bottom: 20px;
+  }
+
+  .toggle-btn {
+    padding: 8px 16px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: rgba(255,255,255,0.04);
+    color: var(--text);
+    font-size: 12px;
+    font-family: 'DM Sans', sans-serif;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .toggle-btn.active {
+    background: rgba(155,127,232,0.15);
+    border-color: rgba(155,127,232,0.4);
+    color: var(--accent);
+  }
+
+  /* Responses list */
+  #responses-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-height: 400px;
+    overflow-y: auto;
+  }
+
+  .resp-item {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 16px;
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .resp-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    margin-top: 5px;
+    flex-shrink: 0;
+  }
+
+  .resp-meta {
+    flex: 1;
+  }
+
+  .resp-sem {
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+    opacity: 0.6;
+  }
+
+  .resp-text {
+    font-size: 13px;
+    line-height: 1.5;
+  }
+
+  .resp-del {
+    background: none;
+    border: none;
+    color: var(--muted);
+    cursor: pointer;
+    font-size: 16px;
+    padding: 0 4px;
+    transition: color 0.2s;
+    line-height: 1;
+  }
+
+  .resp-del:hover { color: var(--danger); }
+
+  .empty-state {
+    text-align: center;
+    padding: 40px;
+    color: var(--muted);
+    font-size: 13px;
+  }
+
+  /* Confirm modal */
+  #confirm-modal {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(5,5,10,0.8);
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+  }
+
+  #confirm-modal.active { display: flex; }
+
+  .modal-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 32px;
+    max-width: 340px;
+    width: 90%;
+    text-align: center;
+  }
+
+  .modal-box h3 { font-size: 16px; margin-bottom: 10px; }
+  .modal-box p { font-size: 13px; color: var(--muted); margin-bottom: 24px; }
+  .modal-actions { display: flex; gap: 10px; }
+  .modal-actions button { flex: 1; }
+
+  .btn-cancel {
+    padding: 11px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: none;
+    color: var(--muted);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    cursor: pointer;
+  }
+
+  /* Toast */
+  #toast {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    background: rgba(92,187,110,0.15);
+    border: 1px solid rgba(92,187,110,0.3);
+    color: var(--success);
+    padding: 10px 20px;
+    border-radius: 50px;
+    font-size: 13px;
+    opacity: 0;
+    transition: all 0.3s;
+    pointer-events: none;
+    white-space: nowrap;
+  }
+
+  #toast.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+
+  .spinner-sm {
+    display: inline-block;
+    width: 10px; height: 10px;
+    border: 2px solid rgba(255,255,255,0.3);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    margin-right: 6px;
+    vertical-align: middle;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .sem-color-dot {
+    display: inline-block;
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    margin-right: 4px;
+    vertical-align: middle;
+  }
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="login-screen">
+  <div class="login-card">
+    <h1>Panel de Administración</h1>
+    <p>Día del Psicólogo — acceso restringido</p>
+    <input type="email" id="login-email" placeholder="Correo electrónico" autocomplete="email">
+    <input type="password" id="login-pass" placeholder="Contraseña" autocomplete="current-password">
+    <button class="btn-primary" id="login-btn" onclick="doLogin()">Entrar</button>
+    <div id="login-error"></div>
+  </div>
+</div>
+
+<!-- ADMIN -->
+<div id="admin-panel">
+  <nav>
+    <h1>Panel Admin — Día del Psicólogo</h1>
+    <div style="display:flex;align-items:center;gap:16px">
+      <span id="user-email"></span>
+      <button class="logout-btn" onclick="doLogout()">Cerrar sesión</button>
+    </div>
+  </nav>
+
+  <div class="panel-body">
+
+    <!-- Pregunta -->
+    <div class="card">
+      <div class="card-title">Pregunta activa</div>
+      <div id="current-question">Cargando…</div>
+      <div class="input-row">
+        <input type="text" id="new-question-input" placeholder="Escribe la nueva pregunta…" maxlength="180">
+        <button class="btn-sm" onclick="updateQuestion()">Publicar</button>
+      </div>
+    </div>
+
+    <!-- Estadísticas -->
+    <div class="card">
+      <div class="card-title">Estadísticas en tiempo real</div>
+      <div class="stats-grid" id="stats-grid"></div>
+
+      <div class="controls-row">
+        <button class="toggle-btn" id="btn-pause" onclick="togglePause()">⏸ Pausar nuevas respuestas</button>
+        <button class="btn-danger" onclick="confirmClearAll()">Limpiar todas las respuestas</button>
+      </div>
+    </div>
+
+    <!-- Respuestas -->
+    <div class="card">
+      <div class="card-title" style="display:flex;justify-content:space-between;align-items:center">
+        <span>Respuestas recibidas</span>
+        <span id="resp-count" style="font-size:12px;color:var(--muted)">0 respuestas</span>
+      </div>
+      <div id="responses-list">
+        <div class="empty-state">Sin respuestas aún</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Confirm modal -->
+<div id="confirm-modal">
+  <div class="modal-box">
+    <h3 id="modal-title">¿Estás seguro?</h3>
+    <p id="modal-desc">Esta acción no se puede deshacer.</p>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal()">Cancelar</button>
+      <button class="btn-danger" id="modal-confirm-btn">Confirmar</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ── FIREBASE CONFIG ── Reemplaza con tus credenciales
+const firebaseConfig = {
+  apiKey: "AIzaSyDASkxSlQ-wLmX2v7Vs9-7GzA-gwDaB5Vo",
+  authDomain: "dia-del-psicologo.firebaseapp.com",
+  databaseURL: "https://dia-del-psicologo-default-rtdb.firebaseio.com",
+  projectId: "dia-del-psicologo",
+  storageBucket: "dia-del-psicologo.firebasestorage.app",
+  messagingSenderId: "1043828123841",
+  appId: "1:1043828123841:web:fafe15e9b723ed83b48c40"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db = firebase.database();
+
+const SEMESTRES = [
+  { key: '1', label: '1°', color: '#e05c8a' },
+  { key: '2', label: '2°', color: '#e0885c' },
+  { key: '3', label: '3°', color: '#d4c44a' },
+  { key: '4', label: '4°', color: '#5cbb6e' },
+  { key: '5', label: '5°', color: '#4ab8c4' },
+  { key: '6', label: '6°', color: '#5c8ae0' },
+  { key: '7', label: '7°', color: '#9b6be0' },
+  { key: '8', label: '8°', color: '#e06b8a' },
+  { key: 'maestro', label: 'Maestro/a', color: '#c0c0c0' },
+  { key: 'otro',    label: 'Otro',       color: '#888888' },
+];
+
+const colorMap = {};
+SEMESTRES.forEach(s => colorMap[s.key] = s.color);
+
+let allResponses = {};
+let paused = false;
+
+// ── AUTH ──
+auth.onAuthStateChanged(user => {
+  if (user) {
+    document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('admin-panel').style.display = 'block';
+    document.getElementById('user-email').textContent = user.email;
+    initAdmin();
+  } else {
+    document.getElementById('login-screen').style.display = 'flex';
+    document.getElementById('admin-panel').style.display = 'none';
+  }
+});
+
+async function doLogin() {
+  const email = document.getElementById('login-email').value.trim();
+  const pass  = document.getElementById('login-pass').value;
+  const errEl = document.getElementById('login-error');
+  const btn   = document.getElementById('login-btn');
+
+  if (!email || !pass) { errEl.textContent = 'Completa los campos.'; return; }
+
+  btn.innerHTML = '<span class="spinner-sm"></span>Entrando…';
+  btn.disabled = true;
+  errEl.textContent = '';
+
+  try {
+    await auth.signInWithEmailAndPassword(email, pass);
+  } catch (e) {
+    errEl.textContent = 'Correo o contraseña incorrectos.';
+    btn.innerHTML = 'Entrar';
+    btn.disabled = false;
+  }
+}
+
+function doLogout() { auth.signOut(); }
+
+// ── ADMIN INIT ──
+function initAdmin() {
+  // Question
+  db.ref('pregunta').on('value', snap => {
+    document.getElementById('current-question').textContent = snap.val() || '(Sin pregunta activa)';
+  });
+
+  // Pause state
+  db.ref('pausado').on('value', snap => {
+    paused = snap.val() === true;
+    const btn = document.getElementById('btn-pause');
+    btn.textContent = paused ? '▶ Reanudar respuestas' : '⏸ Pausar nuevas respuestas';
+    btn.classList.toggle('active', paused);
+  });
+
+  // Responses
+  db.ref('respuestas').on('value', snap => {
+    allResponses = snap.val() || {};
+    renderResponses();
+    renderStats();
+  });
+}
+
+function renderStats() {
+  const counts = {};
+  Object.values(allResponses).forEach(r => {
+    counts[r.semestre] = (counts[r.semestre] || 0) + 1;
+  });
+  const total = Object.values(allResponses).length;
+
+  const grid = document.getElementById('stats-grid');
+  grid.innerHTML = `
+    <div class="stat-item">
+      <div class="stat-num">${total}</div>
+      <div class="stat-label">Total</div>
+    </div>
+  `;
+
+  SEMESTRES.forEach(s => {
+    if (!counts[s.key]) return;
+    const item = document.createElement('div');
+    item.className = 'stat-item';
+    item.innerHTML = `
+      <div class="stat-num" style="color:${s.color}">${counts[s.key]}</div>
+      <div class="stat-label"><span class="sem-color-dot" style="background:${s.color}"></span>${s.label}</div>
+    `;
+    grid.appendChild(item);
+  });
+}
+
+function renderResponses() {
+  const list = document.getElementById('responses-list');
+  const entries = Object.entries(allResponses).reverse();
+
+  document.getElementById('resp-count').textContent = `${entries.length} respuesta${entries.length !== 1 ? 's' : ''}`;
+
+  if (entries.length === 0) {
+    list.innerHTML = '<div class="empty-state">Sin respuestas aún</div>';
+    return;
+  }
+
+  list.innerHTML = '';
+  entries.forEach(([key, r]) => {
+    const sem = SEMESTRES.find(s => s.key === r.semestre) || { label: r.semestre, color: '#888' };
+    const item = document.createElement('div');
+    item.className = 'resp-item';
+    item.innerHTML = `
+      <div class="resp-dot" style="background:${sem.color}"></div>
+      <div class="resp-meta">
+        <div class="resp-sem">${sem.label}</div>
+        <div class="resp-text">${escapeHtml(r.texto)}</div>
+      </div>
+      <button class="resp-del" onclick="deleteResponse('${key}')" title="Eliminar">×</button>
+    `;
+    list.appendChild(item);
+  });
+}
+
+function escapeHtml(str) {
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ── ACTIONS ──
+async function updateQuestion() {
+  const q = document.getElementById('new-question-input').value.trim();
+  if (!q) return;
+  await db.ref('pregunta').set(q);
+  document.getElementById('new-question-input').value = '';
+  showToast('Pregunta actualizada ✦');
+}
+
+async function togglePause() {
+  await db.ref('pausado').set(!paused);
+}
+
+function deleteResponse(key) {
+  db.ref('respuestas/' + key).remove();
+  showToast('Respuesta eliminada');
+}
+
+let modalAction = null;
+function confirmClearAll() {
+  document.getElementById('modal-title').textContent = '¿Limpiar todas las respuestas?';
+  document.getElementById('modal-desc').textContent = 'Se eliminarán todas las respuestas permanentemente. No se puede deshacer.';
+  document.getElementById('modal-confirm-btn').onclick = async () => {
+    await db.ref('respuestas').remove();
+    closeModal();
+    showToast('Todo limpiado ✦');
+  };
+  document.getElementById('confirm-modal').classList.add('active');
+}
+
+function closeModal() {
+  document.getElementById('confirm-modal').classList.remove('active');
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2800);
+}
+
+// Enter key for question
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('new-question-input')?.addEventListener('keydown', e => {
+    if (e.key === 'Enter') updateQuestion();
+  });
+  document.getElementById('login-pass')?.addEventListener('keydown', e => {
+    if (e.key === 'Enter') doLogin();
+  });
+});
+</script>
+</body>
+</html>

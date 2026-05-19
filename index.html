@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Día del Psicólogo — Proyección</title>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: #0a0a12;
+    font-family: 'DM Sans', sans-serif;
+    overflow: hidden;
+    width: 100vw;
+    height: 100vh;
+    cursor: none;
+  }
+
+  #canvas {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+  }
+
+  /* Header */
+  #header {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 18px 36px;
+    background: linear-gradient(to bottom, rgba(10,10,18,0.95) 0%, transparent 100%);
+  }
+
+  .logo-space {
+    width: 80px;
+    height: 50px;
+    border: 1px dashed rgba(255,255,255,0.15);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    color: rgba(255,255,255,0.2);
+    letter-spacing: 0.05em;
+  }
+
+  #title-block {
+    text-align: center;
+    flex: 1;
+    padding: 0 24px;
+  }
+
+  #main-title {
+    font-family: 'Playfair Display', serif;
+    font-size: clamp(16px, 2.5vw, 28px);
+    color: rgba(255,255,255,0.9);
+    letter-spacing: 0.02em;
+  }
+
+  #question-display {
+    font-size: clamp(12px, 1.5vw, 16px);
+    color: rgba(255,255,255,0.5);
+    margin-top: 4px;
+    font-style: italic;
+    font-family: 'Playfair Display', serif;
+    transition: opacity 0.6s;
+  }
+
+  /* Legend */
+  #legend {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 100;
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+    justify-content: center;
+    background: rgba(10,10,18,0.75);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 50px;
+    padding: 10px 24px;
+  }
+
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    color: rgba(255,255,255,0.6);
+    white-space: nowrap;
+  }
+
+  .legend-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  /* Counter */
+  #counter {
+    position: fixed;
+    top: 24px;
+    right: 36px;
+    z-index: 200;
+    text-align: right;
+  }
+
+  #count-num {
+    font-family: 'Playfair Display', serif;
+    font-size: 32px;
+    color: rgba(255,255,255,0.15);
+    line-height: 1;
+  }
+
+  #count-label {
+    font-size: 10px;
+    color: rgba(255,255,255,0.1);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
+  /* Expanded bubble overlay */
+  #overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(5,5,10,0.85);
+    backdrop-filter: blur(8px);
+    z-index: 500;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+  }
+
+  #overlay.active { display: flex; }
+
+  #expanded-card {
+    max-width: 480px;
+    width: 90%;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 20px;
+    padding: 36px;
+    text-align: center;
+    cursor: default;
+    position: relative;
+  }
+
+  #expanded-sem {
+    font-size: 11px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    margin-bottom: 20px;
+    opacity: 0.6;
+  }
+
+  #expanded-text {
+    font-family: 'Playfair Display', serif;
+    font-size: clamp(18px, 3vw, 26px);
+    color: rgba(255,255,255,0.92);
+    line-height: 1.6;
+    font-style: italic;
+  }
+
+  #expanded-close {
+    position: absolute;
+    top: 16px; right: 20px;
+    font-size: 20px;
+    color: rgba(255,255,255,0.3);
+    cursor: pointer;
+    line-height: 1;
+  }
+
+  #expanded-accent {
+    width: 40px;
+    height: 3px;
+    border-radius: 2px;
+    margin: 24px auto 0;
+    opacity: 0.5;
+  }
+
+  /* Ambient glow corners */
+  .glow {
+    position: fixed;
+    border-radius: 50%;
+    filter: blur(80px);
+    opacity: 0.07;
+    pointer-events: none;
+    z-index: 0;
+  }
+  #g1 { width: 400px; height: 400px; background: #7c5cbf; top: -100px; left: -100px; }
+  #g2 { width: 300px; height: 300px; background: #4a9eff; bottom: -80px; right: -80px; }
+</style>
+</head>
+<body>
+
+<div class="glow" id="g1"></div>
+<div class="glow" id="g2"></div>
+
+<canvas id="canvas"></canvas>
+
+<div id="header">
+  <div class="logo-space">LOGO<br>FACULTAD</div>
+  <div id="title-block">
+    <div id="main-title">Día del Psicólogo</div>
+    <div id="question-display">Cargando pregunta…</div>
+  </div>
+  <div class="logo-space">LOGO<br>UJED</div>
+</div>
+
+<div id="counter">
+  <div id="count-num">0</div>
+  <div id="count-label">voces</div>
+</div>
+
+<div id="legend"></div>
+
+<div id="overlay" onclick="closeExpanded()">
+  <div id="expanded-card" onclick="event.stopPropagation()">
+    <span id="expanded-close" onclick="closeExpanded()">×</span>
+    <div id="expanded-sem"></div>
+    <div id="expanded-text"></div>
+    <div id="expanded-accent"></div>
+  </div>
+</div>
+
+<script>
+// ── FIREBASE CONFIG ── Reemplaza con tus credenciales
+const firebaseConfig = {
+  apiKey: "AIzaSyDASkxSlQ-wLmX2v7Vs9-7GzA-gwDaB5Vo",
+  authDomain: "dia-del-psicologo.firebaseapp.com",
+  databaseURL: "https://dia-del-psicologo-default-rtdb.firebaseio.com",
+  projectId: "dia-del-psicologo",
+  storageBucket: "dia-del-psicologo.firebasestorage.app",
+  messagingSenderId: "1043828123841",
+  appId: "1:1043828123841:web:fafe15e9b723ed83b48c40"
+};
+
+const app = initializeApp(firebaseConfig);
+
+// ── SEMESTRE CONFIG ──
+const SEMESTRES = [
+  { key: '1', label: '1° Semestre',  color: '#e05c8a' },
+  { key: '2', label: '2° Semestre',  color: '#e0885c' },
+  { key: '3', label: '3° Semestre',  color: '#d4c44a' },
+  { key: '4', label: '4° Semestre',  color: '#5cbb6e' },
+  { key: '5', label: '5° Semestre',  color: '#4ab8c4' },
+  { key: '6', label: '6° Semestre',  color: '#5c8ae0' },
+  { key: '7', label: '7° Semestre',  color: '#9b6be0' },
+  { key: '8', label: '8° Semestre',  color: '#e06b8a' },
+  { key: 'maestro', label: 'Maestro/a', color: '#c0c0c0' },
+  { key: 'otro',    label: 'Otro',       color: '#888888' },
+];
+
+const colorMap = {};
+SEMESTRES.forEach(s => colorMap[s.key] = s.color);
+
+// ── LEYENDA ──
+const legend = document.getElementById('legend');
+SEMESTRES.forEach(s => {
+  const item = document.createElement('div');
+  item.className = 'legend-item';
+  item.innerHTML = `<div class="legend-dot" style="background:${s.color}"></div>${s.label}`;
+  legend.appendChild(item);
+});
+
+// ── CANVAS BUBBLE ENGINE ──
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+
+function resize() {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+}
+resize();
+window.addEventListener('resize', resize);
+
+const bubbles = [];
+let expandedData = null;
+
+class Bubble {
+  constructor(data) {
+    this.data = data;
+    const color = colorMap[data.semestre] || '#888';
+    this.color = color;
+    this.r = Math.random() * 28 + 36;
+    this.x = Math.random() * (canvas.width - this.r * 2) + this.r;
+    this.y = Math.random() * (canvas.height - this.r * 2) + this.r;
+    this.vx = (Math.random() - 0.5) * 0.7;
+    this.vy = (Math.random() - 0.5) * 0.7;
+    this.opacity = 0;
+    this.wobble = Math.random() * Math.PI * 2;
+    this.wobbleSpeed = 0.015 + Math.random() * 0.01;
+    this.preview = data.texto.split(' ').slice(0, 3).join(' ') + (data.texto.split(' ').length > 3 ? '…' : '');
+    this.birth = Date.now();
+    this.hovered = false;
+    this.scale = 1;
+  }
+
+  update() {
+    this.wobble += this.wobbleSpeed;
+    const wobbleX = Math.sin(this.wobble) * 0.3;
+    const wobbleY = Math.cos(this.wobble * 0.7) * 0.2;
+
+    this.x += this.vx + wobbleX;
+    this.y += this.vy + wobbleY;
+
+    // Wall bounce
+    if (this.x - this.r < 0)  { this.x = this.r; this.vx = Math.abs(this.vx); }
+    if (this.x + this.r > canvas.width)  { this.x = canvas.width - this.r; this.vx = -Math.abs(this.vx); }
+    if (this.y - this.r < 80) { this.y = 80 + this.r; this.vy = Math.abs(this.vy); }
+    if (this.y + this.r > canvas.height - 70) { this.y = canvas.height - 70 - this.r; this.vy = -Math.abs(this.vy); }
+
+    // Fade in
+    const age = (Date.now() - this.birth) / 1000;
+    if (this.opacity < 1) this.opacity = Math.min(1, age * 0.5);
+
+    // Scale on hover
+    this.scale += ((this.hovered ? 1.12 : 1) - this.scale) * 0.1;
+  }
+
+  collide(other) {
+    const dx = other.x - this.x;
+    const dy = other.y - this.y;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    const minDist = this.r + other.r + 2;
+    if (dist < minDist && dist > 0) {
+      const nx = dx / dist;
+      const ny = dy / dist;
+      const overlap = (minDist - dist) / 2;
+      this.x -= nx * overlap;
+      this.y -= ny * overlap;
+      other.x += nx * overlap;
+      other.y += ny * overlap;
+      const dvx = this.vx - other.vx;
+      const dvy = this.vy - other.vy;
+      const dot = dvx * nx + dvy * ny;
+      if (dot > 0) {
+        const impulse = dot * 0.6;
+        this.vx -= impulse * nx;
+        this.vy -= impulse * ny;
+        other.vx += impulse * nx;
+        other.vy += impulse * ny;
+      }
+    }
+  }
+
+  draw() {
+    ctx.save();
+    ctx.translate(this.x, this.y);
+    ctx.scale(this.scale, this.scale);
+    ctx.globalAlpha = this.opacity;
+
+    const r = this.r;
+    const hex = this.color;
+
+    // Outer glow
+    const glow = ctx.createRadialGradient(0, 0, r * 0.5, 0, 0, r * 1.6);
+    glow.addColorStop(0, hex + '22');
+    glow.addColorStop(1, 'transparent');
+    ctx.beginPath();
+    ctx.arc(0, 0, r * 1.6, 0, Math.PI * 2);
+    ctx.fillStyle = glow;
+    ctx.fill();
+
+    // Bubble body
+    const body = ctx.createRadialGradient(-r * 0.25, -r * 0.3, r * 0.05, 0, 0, r);
+    body.addColorStop(0, hex + 'cc');
+    body.addColorStop(0.5, hex + '66');
+    body.addColorStop(1, hex + '22');
+    ctx.beginPath();
+    ctx.arc(0, 0, r, 0, Math.PI * 2);
+    ctx.fillStyle = body;
+    ctx.fill();
+
+    // Rim
+    ctx.beginPath();
+    ctx.arc(0, 0, r, 0, Math.PI * 2);
+    ctx.strokeStyle = hex + '80';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    // Highlight top-left
+    const hi = ctx.createRadialGradient(-r * 0.3, -r * 0.35, 0, -r * 0.2, -r * 0.25, r * 0.5);
+    hi.addColorStop(0, 'rgba(255,255,255,0.55)');
+    hi.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.beginPath();
+    ctx.arc(0, 0, r, 0, Math.PI * 2);
+    ctx.fillStyle = hi;
+    ctx.fill();
+
+    // Small bottom highlight
+    const hi2 = ctx.createRadialGradient(r * 0.35, r * 0.35, 0, r * 0.3, r * 0.3, r * 0.28);
+    hi2.addColorStop(0, 'rgba(255,255,255,0.2)');
+    hi2.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.beginPath();
+    ctx.arc(0, 0, r, 0, Math.PI * 2);
+    ctx.fillStyle = hi2;
+    ctx.fill();
+
+    // Text preview
+    ctx.fillStyle = 'rgba(255,255,255,0.9)';
+    ctx.font = `${Math.max(9, r * 0.28)}px 'DM Sans'`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    const words = this.preview.split(' ');
+    const lineH = r * 0.32;
+    const lines = [];
+    let cur = '';
+    const maxW = r * 1.3;
+    for (const w of words) {
+      const test = cur ? cur + ' ' + w : w;
+      if (ctx.measureText(test).width > maxW && cur) {
+        lines.push(cur); cur = w;
+      } else cur = test;
+    }
+    if (cur) lines.push(cur);
+    const startY = -(lines.length - 1) * lineH / 2;
+    lines.forEach((l, i) => ctx.fillText(l, 0, startY + i * lineH));
+
+    ctx.restore();
+  }
+
+  hitTest(mx, my) {
+    const dx = mx - this.x;
+    const dy = my - this.y;
+    return Math.sqrt(dx * dx + dy * dy) < this.r * this.scale;
+  }
+}
+
+// Mouse
+let mouseX = -999, mouseY = -999;
+canvas.addEventListener('mousemove', e => {
+  mouseX = e.clientX; mouseY = e.clientY;
+});
+
+canvas.addEventListener('click', e => {
+  for (let i = bubbles.length - 1; i >= 0; i--) {
+    if (bubbles[i].hitTest(e.clientX, e.clientY)) {
+      openExpanded(bubbles[i]);
+      return;
+    }
+  }
+});
+
+// Touch
+canvas.addEventListener('touchend', e => {
+  const t = e.changedTouches[0];
+  for (let i = bubbles.length - 1; i >= 0; i--) {
+    if (bubbles[i].hitTest(t.clientX, t.clientY)) {
+      openExpanded(bubbles[i]);
+      return;
+    }
+  }
+});
+
+function openExpanded(b) {
+  const sem = SEMESTRES.find(s => s.key === b.data.semestre) || { label: b.data.semestre, color: '#888' };
+  document.getElementById('expanded-sem').textContent = sem.label;
+  document.getElementById('expanded-sem').style.color = sem.color;
+  document.getElementById('expanded-text').textContent = `"${b.data.texto}"`;
+  document.getElementById('expanded-accent').style.background = sem.color;
+  document.getElementById('overlay').classList.add('active');
+}
+
+function closeExpanded() {
+  document.getElementById('overlay').classList.remove('active');
+}
+
+// Animation loop
+function loop() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  for (const b of bubbles) {
+    b.hovered = b.hitTest(mouseX, mouseY);
+    b.update();
+  }
+
+  // Collisions
+  for (let i = 0; i < bubbles.length; i++)
+    for (let j = i + 1; j < bubbles.length; j++)
+      bubbles[i].collide(bubbles[j]);
+
+  for (const b of bubbles) b.draw();
+
+  requestAnimationFrame(loop);
+}
+loop();
+
+// ── FIREBASE LISTENERS ──
+db.ref('respuestas').on('child_added', snap => {
+  const data = snap.val();
+  if (!data || !data.texto || !data.semestre) return;
+  bubbles.push(new Bubble(data));
+  document.getElementById('count-num').textContent = bubbles.length;
+});
+
+db.ref('pregunta').on('value', snap => {
+  const q = snap.val();
+  document.getElementById('question-display').textContent = q || '—';
+});
+</script>
+</body>
+</html>
