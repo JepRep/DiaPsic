@@ -496,16 +496,16 @@
 <script>
 // ── FIREBASE CONFIG ── Reemplaza con tus credenciales
 const firebaseConfig = {
-  apiKey: "AIzaSyDASkxSlQ-wLmX2v7Vs9-7GzA-gwDaB5Vo",
-  authDomain: "dia-del-psicologo.firebaseapp.com",
-  databaseURL: "https://dia-del-psicologo-default-rtdb.firebaseio.com",
-  projectId: "dia-del-psicologo",
-  storageBucket: "dia-del-psicologo.firebasestorage.app",
-  messagingSenderId: "1043828123841",
-  appId: "1:1043828123841:web:fafe15e9b723ed83b48c40"
-};
+    apiKey: "AIzaSyDASkxSlQ-wLmX2v7Vs9-7GzA-gwDaB5Vo",
+    authDomain: "dia-del-psicologo.firebaseapp.com",
+    databaseURL: "https://dia-del-psicologo-default-rtdb.firebaseio.com",
+    projectId: "dia-del-psicologo",
+    storageBucket: "dia-del-psicologo.firebasestorage.app",
+    messagingSenderId: "1043828123841",
+    appId: "1:1043828123841:web:fafe15e9b723ed83b48c40"
+  };
 
-const app = initializeApp(firebaseConfig);
+firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.database();
 
@@ -642,60 +642,60 @@ function renderResponses() {
   });
 }
 
-function escapeHtml(str) {
-  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+función escapeHtml(str) {
+  retorno str.reemplazar(/&/g,'&amp;').reemplazar(/</g,'&lt;').reemplazar(/>/g,'&gt;').reemplazar(/"/g,'&quot;');
 }
 
-// ── ACTIONS ──
-async function updateQuestion() {
-  const q = document.getElementById('new-question-input').value.trim();
-  if (!q) return;
+// ── ACCIONES ──
+async función actualizarPregunta() {
+  const q = documento.getElementById('nueva entrada de pregunta').valor.trim();
+  si (!q) retorno;
   await db.ref('pregunta').set(q);
-  document.getElementById('new-question-input').value = '';
+  documento.getElementById('nueva entrada de pregunta').valor = '';
   showToast('Pregunta actualizada ✦');
 }
 
-async function togglePause() {
-  await db.ref('pausado').set(!paused);
+async función togglePause() {
+  await db.ref('pausado').set(!en pausa);
 }
 
-function deleteResponse(key) {
-  db.ref('respuestas/' + key).remove();
+función eliminatorio respuesta(clave) {
+  db.ref('respuestas/' + clave).eliminatorio();
   showToast('Respuesta eliminada');
 }
 
-let modalAction = null;
-function confirmClearAll() {
-  document.getElementById('modal-title').textContent = '¿Limpiar todas las respuestas?';
-  document.getElementById('modal-desc').textContent = 'Se eliminarán todas las respuestas permanentemente. No se puede deshacer.';
-  document.getElementById('modal-confirm-btn').onclick = async () => {
-    await db.ref('respuestas').remove();
-    closeModal();
+dejar Acción modal = nulo;
+función confirmarBorrarTodo() {
+  documento.getElementById('típulo modal').contenido de texto = '¿Limpiar todas las respuestas?';
+  documento.getElementById('descripción modal').contenido de texto = 'Se elimina todas las respuestas permanentes. No se puede deshacer.';
+  documento.getElementById('modal-confirm-btn').onclick = async () => {
+    await db.ref('respuestas').eliminatorio();
+    cerrarModal();
     showToast('Todo limpiado ✦');
   };
-  document.getElementById('confirm-modal').classList.add('active');
+  documento.getElementById('confirm-modal').lista de clases.agregar('activo');
 }
 
-function closeModal() {
-  document.getElementById('confirm-modal').classList.remove('active');
+función cerrarModal() {
+  documento.getElementById('confirm-modal').lista de clases.eliminatorio('activo');
 }
 
-function showToast(msg) {
-  const t = document.getElementById('toast');
-  t.textContent = msg;
-  t.classList.add('show');
-  setTimeout(() => t.classList.remove('show'), 2800);
+función showToast(mensaje) {
+  const t = documento.getElementById('tostada');
+  t.contenido de texto = mensaje;
+  t.lista de clases.agregar('mostrar');
+  setTimeout(() => t.lista de clases.eliminatorio('mostrar'), 2800);
 }
 
-// Enter key for question
-document.addEventListener('DOMContentLoaded', () => {
-  document.getElementById('new-question-input')?.addEventListener('keydown', e => {
-    if (e.key === 'Enter') updateQuestion();
+// Ingrese la clave para la junta
+documento.addEventListener('DOMContentLoaded', () => {
+  documento.getElementById('nueva entrada de pregunta')?.addEventListener('tecla abajo', e => {
+    si (e.clave === 'Entrar') actualizarPregunta();
   });
-  document.getElementById('login-pass')?.addEventListener('keydown', e => {
-    if (e.key === 'Enter') doLogin();
+  documento.getElementById('contraseña de inicio de sesión')?.addEventListener('tecla abajo', e => {
+    si (e.clave === 'Entrar') doLogin();
   });
 });
 </script>
-</body>
+</cuervo>
 </html>
