@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Día del Psicólogo — Proyección</title>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+ 
+  :root {
+    --header-h: 64px;
+    --footer-h: 48px;
+  }
+ 
+  html, body {
+    width: 100%; height: 100%;
+    overflow: hidden;
+    background: #0a0a12;
+    font-family: 'DM Sans', sans-serif;
+  }
+ 
+  body { cursor: grab; }
+  body.dragging { cursor: grabbing; }
+  @media (hover: none) { body, body.dragging { cursor: default; } }
+ 
+  #canvas {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    touch-action: none;
+  }
+ 
+  /* ── HEADER ── */
+  #header {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    z-index: 200;
+    height: var(--header-h);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 20px;
+    background: linear-gradient(to bottom, rgba(10,10,18,0.97) 55%, transparent 100%);
+    pointer-events: none;
+  }
+ 
+  #question-display {
+    text-align: center;
+    font-family: 'Playfair Display', serif;
+    font-style: italic;
+    font-size: clamp(13px, 3vw, 22px);
+    color: rgba(255,255,255,0.9);
+    line-height: 1.3;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    max-width: 700px;
+    width: 100%;
+  }
+ 
+  /* ── FOOTER ── */
+  #footer {
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    z-index: 200;
+    height: var(--footer-h);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 18px;
+    background: linear-gradient(to top, rgba(10,10,18,0.97) 55%, transparent 100%);
+    gap: 12px;
+  }
+ 
+  #counter {
+    display: flex;
+    align-items: baseline;
+    gap: 4px;
+    flex-shrink: 0;
+  }
+  #count-num {
+    font-family: 'Playfair Display', serif;
+    font-size: 20px;
+    color: rgba(255,255,255,0.22);
+  }
+  #count-label {
+    font-size: 9px;
+    color: rgba(255,255,255,0.14);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+ 
+  #footer-text {
+    flex: 1;
+    font-size: clamp(8px, 1.8vw, 10px);
+    color: rgba(255,255,255,0.2);
+    text-align: center;
+    letter-spacing: 0.04em;
+    line-height: 1.4;
+  }
+ 
+  /* Respond button — lives in DOM footer, always above canvas */
+  #respond-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(155,127,232,0.18);
+    border: 1px solid rgba(155,127,232,0.4);
+    border-radius: 50px;
+    padding: 8px 16px;
+    color: rgba(255,255,255,0.85);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 12px;
+    cursor: pointer;
+    text-decoration: none;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    transition: all 0.2s;
+    white-space: nowrap;
+    flex-shrink: 0;
+    position: relative;
+    z-index: 300;
+  }
+  #respond-btn:hover {
+    background: rgba(155,127,232,0.32);
+    border-color: rgba(155,127,232,0.7);
+    color: #fff;
+  }
+  #respond-btn:active { transform: scale(0.96); }
+ 
+  /* Pan hint — appears when world is bigger than screen */
+  #pan-hint {
+    position: fixed;
+    bottom: calc(var(--footer-h) + 10px);
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 190;
+    font-size: 10px;
+    color: rgba(255,255,255,0.22);
+    letter-spacing: 0.08em;
+    pointer-events: none;
+    white-space: nowrap;
+    opacity: 0;
+    transition: opacity 0.6s;
+  }
+  #pan-hint.visible { opacity: 1; }
+ 
+  /* Touch hint */
+  #touch-hint {
+    position: fixed;
+    top: calc(var(--header-h) + 10px);
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 190;
+    font-size: 10px;
+    color: rgba(255,255,255,0.18);
+    letter-spacing: 0.06em;
+    pointer-events: none;
+    white-space: nowrap;
+    animation: fadeHint 5s ease 1.5s forwards;
+  }
+  @keyframes fadeHint { 0%{opacity:1} 75%{opacity:1} 100%{opacity:0} }
+  @media (hover: hover) { #touch-hint { display: none; } }
+ 
+  /* Ambient glows */
+  .glow {
+    position: fixed; border-radius: 50%;
+    filter: blur(90px); opacity: 0.06;
+    pointer-events: none; z-index: 0;
+  }
+  #g1 { width:420px;height:420px;background:#7c5cbf;top:-110px;left:-110px; }
+  #g2 { width:320px;height:320px;background:#4a9eff;bottom:-90px;right:-90px; }
+ 
+  /* ── EXPANDED OVERLAY ── */
+  #overlay {
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(5,5,10,0.88);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    z-index: 500;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    cursor: pointer;
+  }
+  #overlay.active { display: flex; }
+ 
+  #expanded-card {
+    max-width: 460px; width: 100%;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.13);
+    border-radius: 22px;
+    padding: 34px 28px 28px;
+    text-align: center;
+    cursor: default;
+    position: relative;
+    animation: cardIn 0.25s cubic-bezier(0.34,1.56,0.64,1);
+  }
+  @keyframes cardIn {
+    from { transform: scale(0.88); opacity: 0; }
+    to   { transform: scale(1);    opacity: 1; }
+  }
+ 
+  #expanded-sem {
+    font-size: 11px; letter-spacing: 0.15em;
+    text-transform: uppercase; margin-bottom: 18px;
+    display: flex; align-items: center;
+    justify-content: center; gap: 8px;
+  }
+  #expanded-dot {
+    width: 9px; height: 9px;
+    border-radius: 50%; flex-shrink: 0;
+  }
+  #expanded-text {
+    font-family: 'Playfair Display', serif;
+    font-size: clamp(16px, 4vw, 24px);
+    color: rgba(255,255,255,0.92);
+    line-height: 1.65; font-style: italic;
+  }
+  #expanded-close {
+    position: absolute; top: 14px; right: 18px;
+    font-size: 22px; color: rgba(255,255,255,0.3);
+    cursor: pointer; padding: 4px 8px;
+  }
+  #expanded-accent {
+    width: 36px; height: 3px;
+    border-radius: 2px;
+    margin: 22px auto 0; opacity: 0.45;
+  }
+</style>
+</head>
+<body>
+ 
+<div class="glow" id="g1"></div>
+<div class="glow" id="g2"></div>
+ 
+<canvas id="canvas"></canvas>
+ 
+<div id="header">
+  <div id="question-display">Cargando pregunta…</div>
+</div>
+ 
+<div id="touch-hint">Toca una burbuja para leer</div>
+<div id="pan-hint">⟵ arrastra para explorar ⟶</div>
+ 
+<div id="footer">
+  <div id="counter">
+    <div id="count-num">0</div>
+    <div id="count-label">voces</div>
+  </div>
+  <div id="footer-text">Facultad de Psicología y Terapia de la Comunicación Humana &mdash; Día del Psicólogo</div>
+  <a id="respond-btn" href="responder.html">&#43; Responder</a>
+</div>
+ 
+<div id="overlay" onclick="closeExpanded()">
+  <div id="expanded-card" onclick="event.stopPropagation()">
+    <span id="expanded-close" onclick="closeExpanded()">×</span>
+    <div id="expanded-sem">
+      <span id="expanded-dot"></span>
+      <span id="expanded-sem-label"></span>
+    </div>
+    <div id="expanded-text"></div>
+    <div id="expanded-accent"></div>
+  </div>
+</div>
+ 
+<script>
+// ── FIREBASE ──
+const firebaseConfig = {
+  apiKey: "AIzaSyDASkxSlQ-wLmX2v7Vs9-7GzA-gwDaB5Vo",
+  authDomain: "dia-del-psicologo.firebaseapp.com",
+  databaseURL: "https://dia-del-psicologo-default-rtdb.firebaseio.com",
+  projectId: "dia-del-psicologo",
+  storageBucket: "dia-del-psicologo.firebasestorage.app",
+  messagingSenderId: "1043828123841",
+  appId: "1:1043828123841:web:fafe15e9b723ed83b48c40"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+ 
+// ── SEMESTRES ──
+const SEMESTRES = [
+  { key:'1',       label:'1° Semestre',  color:'#e05c8a' },
+  { key:'2',       label:'2° Semestre',  color:'#e0885c' },
+  { key:'3',       label:'3° Semestre',  color:'#d4c44a' },
+  { key:'4',       label:'4° Semestre',  color:'#5cbb6e' },
+  { key:'5',       label:'5° Semestre',  color:'#4ab8c4' },
+  { key:'6',       label:'6° Semestre',  color:'#5c8ae0' },
+  { key:'7',       label:'7° Semestre',  color:'#9b6be0' },
+  { key:'8',       label:'8° Semestre',  color:'#e06b8a' },
+  { key:'maestro', label:'Maestro/a',    color:'#c0c0c0' },
+  { key:'otro',    label:'Otro',         color:'#888888' },
+];
+const colorMap = {};
+SEMESTRES.forEach(s => colorMap[s.key] = s.color);
+ 
+// ── CANVAS & DIMENSIONS ──
+const canvas  = document.getElementById('canvas');
+const ctx     = canvas.getContext('2d');
+const HEADER_H = 64;
+const FOOTER_H = 48;
+const PADDING  = 36;
+ 
+function vW() { return window.innerWidth; }
+function vH() { return window.innerHeight; }
+function safeH() { return vH() - HEADER_H - FOOTER_H; }
+ 
+function resize() {
+  canvas.width  = vW();
+  canvas.height = vH();
+}
+resize();
+window.addEventListener('resize', resize);
+ 
+// ── VIRTUAL WORLD ──
+// The world starts at screen size and GROWS as bubbles arrive.
+// We track how many "slots" we need and expand accordingly.
+let worldW = vW();
+let worldH = safeH();
+ 
+// Pan offset (how far the viewport is shifted into the world)
+let panX = 0, panY = 0;
+ 
+function clampPan() {
+  panX = Math.max(0, Math.min(panX, Math.max(0, worldW - vW())));
+  panY = Math.max(0, Math.min(panY, Math.max(0, worldH - safeH())));
+}
+ 
+// Compute ideal radius so n bubbles fill ~35% of world area
+function idealR(n) {
+  if (n <= 0) n = 1;
+  const area = worldW * worldH;
+  const r = Math.sqrt((area * 0.35) / (n * Math.PI));
+  return Math.min(65, Math.max(20, r));
+}
+ 
+// Grow world so n bubbles each with radius r fit comfortably
+function growWorldFor(n) {
+  const r    = idealR(n);
+  // Area needed with 30% packing headroom
+  const need = n * Math.PI * r * r * 3.5;
+  const aspect = vW() / safeH();
+  const newH = Math.sqrt(need / aspect);
+  const newW = newH * aspect;
+ 
+  // Only ever grow, never shrink
+  if (newW > worldW || newH > worldH) {
+    worldW = Math.max(worldW, newW);
+    worldH = Math.max(worldH, newH);
+    // Show pan hint if world exceeds screen
+    if (worldW > vW() * 1.1 || worldH > safeH() * 1.1) showPanHint();
+  }
+}
+ 
+let panHintTimeout = null;
+function showPanHint() {
+  const el = document.getElementById('pan-hint');
+  el.classList.add('visible');
+  clearTimeout(panHintTimeout);
+  panHintTimeout = setTimeout(() => el.classList.remove('visible'), 4500);
+}
+ 
+// ── BUBBLES ──
+const bubbles = [];
+ 
+class Bubble {
+  constructor(data) {
+    this.data  = data;
+    this.color = colorMap[data.semestre] || '#888';
+ 
+    // Radius based on current count (will be rebalanced later)
+    const n = bubbles.length + 1;
+    const base = idealR(n);
+    this.r = base * (0.72 + Math.random() * 0.56);
+ 
+    // Spawn anywhere in world
+    this.x = PADDING + this.r + Math.random() * (worldW - this.r * 2 - PADDING * 2);
+    this.y = PADDING + this.r + Math.random() * (worldH - this.r * 2 - PADDING * 2);
+ 
+    this.vx = (Math.random() - 0.5) * 0.5;
+    this.vy = (Math.random() - 0.5) * 0.5;
+    this.wobble      = Math.random() * Math.PI * 2;
+    this.wobbleSpeed = 0.009 + Math.random() * 0.011;
+    this.opacity     = 0;
+    this.birth       = Date.now();
+    this.hovered     = false;
+    this.scale       = 1;
+ 
+    const words = data.texto.split(' ');
+    this.preview = words.slice(0, 4).join(' ') + (words.length > 4 ? '…' : '');
+  }
+ 
+  // Gently shrink toward new ideal radius (called every N frames)
+  relaxR() {
+    const target = idealR(bubbles.length) * (0.72 + Math.random() * 0.56);
+    if (target < this.r) this.r = this.r * 0.998 + target * 0.002; // very slow
+  }
+ 
+  update() {
+    this.wobble += this.wobbleSpeed;
+    this.x += this.vx + Math.sin(this.wobble) * 0.20;
+    this.y += this.vy + Math.cos(this.wobble * 0.75) * 0.14;
+ 
+    // Bounce off world walls
+    if (this.x - this.r < 0)       { this.x = this.r;          this.vx =  Math.abs(this.vx); }
+    if (this.x + this.r > worldW)  { this.x = worldW - this.r; this.vx = -Math.abs(this.vx); }
+    if (this.y - this.r < 0)       { this.y = this.r;           this.vy =  Math.abs(this.vy); }
+    if (this.y + this.r > worldH)  { this.y = worldH - this.r;  this.vy = -Math.abs(this.vy); }
+ 
+    const age = (Date.now() - this.birth) / 1000;
+    if (this.opacity < 1) this.opacity = Math.min(1, age * 0.7);
+ 
+    this.scale += ((this.hovered ? 1.1 : 1) - this.scale) * 0.12;
+  }
+ 
+  collide(other) {
+    const dx = other.x - this.x, dy = other.y - this.y;
+    const d  = Math.sqrt(dx*dx + dy*dy);
+    const m  = this.r + other.r + 1.5;
+    if (d < m && d > 0) {
+      const nx = dx/d, ny = dy/d, ov = (m - d) / 2;
+      this.x -= nx*ov; this.y -= ny*ov;
+      other.x += nx*ov; other.y += ny*ov;
+      const dvx = this.vx - other.vx, dvy = this.vy - other.vy;
+      const dot = dvx*nx + dvy*ny;
+      if (dot > 0) {
+        const k = dot * 0.5;
+        this.vx -= k*nx; this.vy -= k*ny;
+        other.vx += k*nx; other.vy += k*ny;
+      }
+    }
+  }
+ 
+  // Screen-space X and Y (world pos translated by pan and header)
+  sx() { return this.x - panX; }
+  sy() { return this.y - panY + HEADER_H; }
+ 
+  // Only draw if near the viewport (culling)
+  isVisible() {
+    const x = this.sx(), y = this.sy(), m = this.r * 1.7;
+    return x + m > 0 && x - m < vW() && y + m > HEADER_H && y - m < vH() - FOOTER_H;
+  }
+ 
+  draw() {
+    if (!this.isVisible()) return;
+    ctx.save();
+    ctx.translate(this.sx(), this.sy());
+    ctx.scale(this.scale, this.scale);
+    ctx.globalAlpha = this.opacity;
+ 
+    const r = this.r, hex = this.color;
+ 
+    const glow = ctx.createRadialGradient(0,0,r*.5,0,0,r*1.55);
+    glow.addColorStop(0, hex+'1c'); glow.addColorStop(1,'transparent');
+    ctx.beginPath(); ctx.arc(0,0,r*1.55,0,Math.PI*2);
+    ctx.fillStyle = glow; ctx.fill();
+ 
+    const body = ctx.createRadialGradient(-r*.25,-r*.3,r*.05,0,0,r);
+    body.addColorStop(0,hex+'cc'); body.addColorStop(.5,hex+'66'); body.addColorStop(1,hex+'1e');
+    ctx.beginPath(); ctx.arc(0,0,r,0,Math.PI*2);
+    ctx.fillStyle = body; ctx.fill();
+ 
+    ctx.beginPath(); ctx.arc(0,0,r,0,Math.PI*2);
+    ctx.strokeStyle = hex+'70'; ctx.lineWidth = 1; ctx.stroke();
+ 
+    const h1 = ctx.createRadialGradient(-r*.3,-r*.35,0,-r*.2,-r*.25,r*.5);
+    h1.addColorStop(0,'rgba(255,255,255,0.52)'); h1.addColorStop(1,'rgba(255,255,255,0)');
+    ctx.beginPath(); ctx.arc(0,0,r,0,Math.PI*2); ctx.fillStyle=h1; ctx.fill();
+ 
+    const h2 = ctx.createRadialGradient(r*.35,r*.35,0,r*.3,r*.3,r*.28);
+    h2.addColorStop(0,'rgba(255,255,255,0.16)'); h2.addColorStop(1,'rgba(255,255,255,0)');
+    ctx.beginPath(); ctx.arc(0,0,r,0,Math.PI*2); ctx.fillStyle=h2; ctx.fill();
+ 
+    const fs = Math.max(7, r * 0.25);
+    ctx.fillStyle = 'rgba(255,255,255,0.9)';
+    ctx.font = `${fs}px 'DM Sans'`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    const maxW = r * 1.42, lh = fs * 1.28;
+    const wds = this.preview.split(' ');
+    const lns = []; let cur = '';
+    for (const w of wds) {
+      const t = cur ? cur+' '+w : w;
+      if (ctx.measureText(t).width > maxW && cur) { lns.push(cur); cur = w; } else cur = t;
+    }
+    if (cur) lns.push(cur);
+    const sy0 = -(lns.length - 1) * lh / 2;
+    lns.forEach((l, i) => ctx.fillText(l, 0, sy0 + i * lh));
+ 
+    ctx.restore();
+  }
+ 
+  hitTest(sx, sy) {
+    const dx = sx - this.sx(), dy = sy - this.sy();
+    return Math.sqrt(dx*dx + dy*dy) < this.r * this.scale * 1.15;
+  }
+}
+ 
+// ── PAN (drag) ──
+let isDragging = false, dragDist = 0;
+let dragSX = 0, dragSY = 0, panSX = 0, panSY = 0;
+ 
+// Mouse
+canvas.addEventListener('mousedown', e => {
+  isDragging = true; dragDist = 0;
+  dragSX = e.clientX; dragSY = e.clientY;
+  panSX = panX; panSY = panY;
+  document.body.classList.add('dragging');
+});
+window.addEventListener('mousemove', e => {
+  if (!isDragging) {
+    for (const b of bubbles) b.hovered = b.hitTest(e.clientX, e.clientY);
+    return;
+  }
+  const dx = e.clientX - dragSX, dy = e.clientY - dragSY;
+  dragDist += Math.abs(dx) + Math.abs(dy);
+  panX = panSX - dx; panY = panSY - dy;
+  clampPan();
+});
+window.addEventListener('mouseup', e => {
+  if (!isDragging) return;
+  document.body.classList.remove('dragging');
+  isDragging = false;
+  if (dragDist < 6) {
+    for (let i = bubbles.length - 1; i >= 0; i--) {
+      if (bubbles[i].hitTest(e.clientX, e.clientY)) { openExpanded(bubbles[i]); break; }
+    }
+  }
+});
+ 
+// Touch
+canvas.addEventListener('touchstart', e => {
+  e.preventDefault();
+  if (e.touches.length !== 1) return;
+  const t = e.touches[0];
+  isDragging = true; dragDist = 0;
+  dragSX = t.clientX; dragSY = t.clientY;
+  panSX = panX; panSY = panY;
+}, { passive: false });
+ 
+canvas.addEventListener('touchmove', e => {
+  e.preventDefault();
+  if (e.touches.length !== 1) return;
+  const t = e.touches[0];
+  const dx = t.clientX - dragSX, dy = t.clientY - dragSY;
+  dragDist += Math.abs(dx) + Math.abs(dy);
+  panX = panSX - dx; panY = panSY - dy;
+  clampPan();
+}, { passive: false });
+ 
+canvas.addEventListener('touchend', e => {
+  e.preventDefault();
+  isDragging = false;
+  if (dragDist < 10) {
+    const t = e.changedTouches[0];
+    for (let i = bubbles.length - 1; i >= 0; i--) {
+      if (bubbles[i].hitTest(t.clientX, t.clientY)) { openExpanded(bubbles[i]); break; }
+    }
+  }
+}, { passive: false });
+ 
+// ── EXPANDED ──
+function openExpanded(b) {
+  const sem = SEMESTRES.find(s => s.key === b.data.semestre) || { label: b.data.semestre, color: '#888' };
+  document.getElementById('expanded-dot').style.background    = sem.color;
+  document.getElementById('expanded-sem-label').textContent   = sem.label;
+  document.getElementById('expanded-sem').style.color         = sem.color;
+  document.getElementById('expanded-text').textContent        = `"${b.data.texto}"`;
+  document.getElementById('expanded-accent').style.background = sem.color;
+  document.getElementById('overlay').classList.add('active');
+}
+function closeExpanded() {
+  document.getElementById('overlay').classList.remove('active');
+}
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeExpanded(); });
+ 
+// ── RENDER LOOP ──
+let frame = 0;
+function loop() {
+  ctx.clearRect(0, 0, vW(), vH());
+ 
+  // Clip to safe area
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(0, HEADER_H, vW(), safeH());
+  ctx.clip();
+ 
+  frame++;
+  // Every 90 frames, gently relax bubble radii
+  if (frame % 90 === 0) {
+    for (const b of bubbles) b.relaxR();
+  }
+ 
+  for (const b of bubbles) b.update();
+ 
+  // Collisions (cap for perf on mobile)
+  const cap = Math.min(bubbles.length, 180);
+  for (let i = 0; i < cap; i++)
+    for (let j = i + 1; j < cap; j++)
+      bubbles[i].collide(bubbles[j]);
+ 
+  for (const b of bubbles) b.draw();
+ 
+  ctx.restore();
+ 
+  requestAnimationFrame(loop);
+}
+loop();
+ 
+// ── FIREBASE ──
+db.ref('respuestas').on('child_added', snap => {
+  const data = snap.val();
+  if (!data || !data.texto || !data.semestre) return;
+ 
+  // Grow world before adding bubble so it has room to spawn
+  growWorldFor(bubbles.length + 1);
+ 
+  bubbles.push(new Bubble(data));
+  document.getElementById('count-num').textContent = bubbles.length;
+});
+ 
+db.ref('pregunta').on('value', snap => {
+  document.getElementById('question-display').textContent = snap.val() || '—';
+});
+</script>
+</body>
+</html>
+ 
