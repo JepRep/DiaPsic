@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tu voz — Día del Psicólogo</title>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+
+  :root{
+    --bg:#0b0b14;
+    --surface:rgba(255,255,255,.04);
+    --border:rgba(255,255,255,.1);
+    --text:rgba(255,255,255,.88);
+    --muted:rgba(255,255,255,.38);
+    --accent:#9b7fe8;
+    --accent2:#4ab8c4;
+  }
+
+  body{
+    background:var(--bg);color:var(--text);
+    font-family:'DM Sans',sans-serif;
+    min-height:100dvh;display:flex;
+    flex-direction:column;align-items:center;
+    padding:0 0 40px;
+  }
+
+  body::before{
+    content:'';position:fixed;top:-120px;left:50%;transform:translateX(-50%);
+    width:320px;height:320px;border-radius:50%;
+    background:radial-gradient(circle,#7c5cbf33 0%,transparent 70%);
+    pointer-events:none;z-index:0;
+  }
+
+  header{
+    width:100%;display:flex;align-items:center;
+    justify-content:space-between;padding:20px 24px 14px;
+    position:relative;z-index:1;
+  }
+
+  header h1{
+    font-family:'Playfair Display',serif;font-size:15px;
+    font-weight:400;color:rgba(255,255,255,.65);
+    text-align:center;flex:1;padding:0 12px;
+  }
+
+  /* Back link */
+  #back-btn{
+    display:inline-flex;align-items:center;gap:6px;
+    color:var(--muted);font-size:12px;text-decoration:none;
+    padding:7px 12px;border-radius:50px;
+    border:1px solid rgba(255,255,255,.08);transition:all .2s;
+    flex-shrink:0;
+  }
+  #back-btn:hover{color:var(--text);border-color:rgba(255,255,255,.2);}
+
+  main{width:100%;max-width:480px;padding:0 20px;position:relative;z-index:1;margin-top:4px;}
+
+  /* ── PROGRESS INDICATOR ── */
+  #progress-bar{
+    display:flex;align-items:center;gap:8px;
+    margin-bottom:22px;
+  }
+  .prog-step{
+    height:3px;flex:1;border-radius:2px;
+    background:rgba(255,255,255,.1);
+    transition:background .4s;
+  }
+  .prog-step.done{ background:var(--accent); }
+  .prog-step.active{ background:rgba(155,127,232,.5); }
+  #prog-label{
+    font-size:11px;color:var(--muted);white-space:nowrap;
+    letter-spacing:.06em;
+  }
+
+  /* ── QUESTION BOX ── */
+  .question-box{
+    background:var(--surface);border:1px solid var(--border);
+    border-radius:16px;padding:26px 22px;
+    text-align:center;margin-bottom:20px;position:relative;overflow:hidden;
+  }
+  .question-box::before{
+    content:'"';position:absolute;top:-10px;left:10px;
+    font-family:'Playfair Display',serif;font-size:80px;
+    opacity:.1;line-height:1;pointer-events:none;
+  }
+  .q-label{
+    font-size:10px;letter-spacing:.12em;text-transform:uppercase;
+    opacity:.6;margin-bottom:12px;
+  }
+  .q-text{
+    font-family:'Playfair Display',serif;
+    font-size:clamp(16px,4.5vw,22px);
+    line-height:1.5;font-style:italic;color:var(--text);
+    min-height:36px;
+  }
+
+  /* ── SEMESTRE GRID ── */
+  .field-label{
+    font-size:11px;letter-spacing:.1em;text-transform:uppercase;
+    color:var(--muted);margin-bottom:10px;
+  }
+
+  #semestre-grid{
+    display:grid;grid-template-columns:repeat(auto-fill,minmax(116px,1fr));
+    gap:8px;margin-bottom:22px;
+  }
+
+  .sem-btn{
+    padding:9px 8px;border-radius:10px;
+    border:1px solid var(--border);background:var(--surface);
+    color:var(--muted);font-family:'DM Sans',sans-serif;
+    font-size:12px;cursor:pointer;transition:all .18s;
+    text-align:center;position:relative;overflow:hidden;
+  }
+  .sem-btn.selected{
+    border-color:var(--sem-color,var(--accent));
+    color:#fff;
+    background:color-mix(in srgb,var(--sem-color,var(--accent)) 18%,transparent);
+  }
+  .sem-dot{
+    display:inline-block;width:7px;height:7px;
+    border-radius:50%;margin-right:5px;
+    vertical-align:middle;margin-top:-1px;
+  }
+
+  /* ── TEXTAREA ── */
+  .resp-field{ margin-bottom:18px; }
+
+  textarea{
+    width:100%;background:var(--surface);
+    border:1px solid var(--border);border-radius:14px;
+    padding:16px;color:var(--text);
+    font-family:'Playfair Display',serif;
+    font-size:16px;font-style:italic;line-height:1.6;
+    resize:none;outline:none;transition:border-color .2s;min-height:110px;
+  }
+  textarea::placeholder{color:var(--muted);font-style:italic;}
+  textarea:focus{border-color:rgba(155,127,232,.4);}
+
+  #char-count{text-align:right;font-size:11px;color:var(--muted);margin-top:5px;}
+
+  /* ── NEXT / SUBMIT BUTTONS ── */
+  .action-btn{
+    width:100%;padding:15px;border-radius:14px;border:none;
+    color:#fff;font-family:'DM Sans',sans-serif;
+    font-size:15px;font-weight:500;cursor:pointer;
+    transition:all .2s;letter-spacing:.03em;
+  }
+  #next-btn{ background:var(--accent); }
+  #submit-btn{ background:var(--accent2); }
+
+  .action-btn:disabled{
+    background:rgba(155,127,232,.25);cursor:not-allowed;color:rgba(255,255,255,.35);
+  }
+  #submit-btn:disabled{ background:rgba(74,184,196,.25); }
+  .action-btn:not(:disabled):active{transform:scale(.98);}
+
+  /* ── STEP SECTIONS ── */
+  #step2-section{ display:none; }
+
+  /* Transition animation */
+  @keyframes slideIn{
+    from{transform:translateY(18px);opacity:0;}
+    to{transform:translateY(0);opacity:1;}
+  }
+  .slide-in{ animation:slideIn .35s ease; }
+
+  /* ── PAUSED SCREEN ── */
+  #paused-screen{
+    display:none;flex-direction:column;align-items:center;
+    text-align:center;padding:60px 24px;
+  }
+  #paused-icon{
+    width:72px;height:72px;border-radius:50%;
+    background:rgba(224,92,92,.1);border:1px solid rgba(224,92,92,.25);
+    display:flex;align-items:center;justify-content:center;
+    font-size:28px;margin-bottom:24px;
+  }
+  #paused-title{font-family:'Playfair Display',serif;font-size:22px;margin-bottom:10px;}
+  #paused-sub{color:var(--muted);font-size:14px;line-height:1.6;max-width:280px;}
+
+  /* ── SUCCESS ── */
+  #success-screen{
+    display:none;flex-direction:column;align-items:center;
+    text-align:center;padding:60px 24px;
+  }
+  #success-icon{
+    width:80px;height:80px;border-radius:50%;
+    background:rgba(92,187,110,.12);border:1px solid rgba(92,187,110,.3);
+    display:flex;align-items:center;justify-content:center;
+    font-size:32px;margin-bottom:28px;
+    animation:popIn .5s cubic-bezier(.34,1.56,.64,1);
+  }
+  @keyframes popIn{from{transform:scale(0);opacity:0}to{transform:scale(1);opacity:1}}
+  #success-title{font-family:'Playfair Display',serif;font-size:26px;margin-bottom:12px;}
+  #success-sub{color:var(--muted);font-size:14px;line-height:1.6;max-width:280px;}
+
+  /* Error */
+  .error-msg{
+    background:rgba(224,92,92,.1);border:1px solid rgba(224,92,92,.28);
+    border-radius:10px;padding:11px 15px;font-size:13px;
+    color:#e05c5c;margin-bottom:14px;display:none;
+  }
+
+  /* Spinner */
+  .spinner{
+    display:inline-block;width:13px;height:13px;
+    border:2px solid rgba(255,255,255,.3);border-top-color:#fff;
+    border-radius:50%;animation:spin .7s linear infinite;
+    margin-right:7px;vertical-align:middle;
+  }
+  @keyframes spin{to{transform:rotate(360deg)}}
+
+  /* View link */
+  #view-btn{
+    display:inline-flex;align-items:center;gap:6px;
+    margin-top:24px;color:var(--muted);font-size:13px;
+    text-decoration:none;padding:8px 14px;border-radius:50px;
+    border:1px solid rgba(255,255,255,.08);transition:all .2s;
+  }
+  #view-btn:hover{color:var(--text);border-color:rgba(255,255,255,.2);}
+</style>
+</head>
+<body>
+
+<header>
+  <a id="back-btn" href="index.html">&#8592; Ver voces</a>
+  <h1>Tu voz</h1>
+  <div style="width:80px"></div>
+</header>
+
+<main>
+
+  <!-- PAUSED -->
+  <div id="paused-screen">
+    <div id="paused-icon">⏸</div>
+    <div id="paused-title">Respuestas pausadas</div>
+    <div id="paused-sub">Por el momento no se están aceptando nuevas voces. Puedes seguir explorando las respuestas.</div>
+    <a href="index.html" id="view-btn">Ver las voces →</a>
+  </div>
+
+  <!-- FORM -->
+  <div id="form-section">
+
+    <!-- Progress -->
+    <div id="progress-bar">
+      <div class="prog-step active" id="prog1"></div>
+      <div class="prog-step" id="prog2"></div>
+      <div id="prog-label">Paso 1 de 2</div>
+    </div>
+
+    <!-- STEP 1 -->
+    <div id="step1-section">
+      <div class="question-box" style="--accent:var(--accent)">
+        <div class="q-label" style="color:var(--accent)">Primera pregunta</div>
+        <div class="q-text" id="q1-text">Cargando…</div>
+      </div>
+
+      <div class="field-label">¿Quién responde?</div>
+      <div id="semestre-grid"></div>
+
+      <div class="resp-field">
+        <div class="field-label">Tu respuesta</div>
+        <textarea id="resp1" maxlength="200" placeholder="Escribe aquí, con honestidad…" rows="4"
+          oninput="onResp1Input()"></textarea>
+        <div id="char-count1">0 / 200</div>
+      </div>
+
+      <div class="error-msg" id="err1"></div>
+      <button class="action-btn" id="next-btn" disabled onclick="goStep2()">Continuar →</button>
+    </div>
+
+    <!-- STEP 2 -->
+    <div id="step2-section">
+      <div class="question-box">
+        <div class="q-label" style="color:var(--accent2)">Segunda pregunta</div>
+        <div class="q-text" id="q2-text">Cargando…</div>
+      </div>
+
+      <div class="resp-field">
+        <div class="field-label">Tu respuesta</div>
+        <textarea id="resp2" maxlength="200" placeholder="Escribe aquí, con honestidad…" rows="4"
+          oninput="onResp2Input()"></textarea>
+        <div id="char-count2">0 / 200</div>
+      </div>
+
+      <div class="error-msg" id="err2"></div>
+      <button class="action-btn" id="submit-btn" disabled onclick="submitBoth()">Compartir mis voces ✦</button>
+    </div>
+
+  </div>
+
+  <!-- SUCCESS -->
+  <div id="success-screen">
+    <div id="success-icon">✦</div>
+    <div id="success-title">Gracias por compartir</div>
+    <div id="success-sub">Tus dos voces ya forman parte de la conversación colectiva.</div>
+    <a href="index.html" id="view-btn">Ver las voces →</a>
+  </div>
+
+</main>
+
+<script>
+const firebaseConfig={
+  apiKey:"AIzaSyDASkxSlQ-wLmX2v7Vs9-7GzA-gwDaB5Vo",
+  authDomain:"dia-del-psicologo.firebaseapp.com",
+  databaseURL:"https://dia-del-psicologo-default-rtdb.firebaseio.com",
+  projectId:"dia-del-psicologo",
+  storageBucket:"dia-del-psicologo.firebasestorage.app",
+  messagingSenderId:"1043828123841",
+  appId:"1:1043828123841:web:fafe15e9b723ed83b48c40"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+
+const SEMESTRES=[
+  {key:'1',label:'1° Semestre',color:'#e05c8a'},
+  {key:'2',label:'2° Semestre',color:'#e0885c'},
+  {key:'3',label:'3° Semestre',color:'#d4c44a'},
+  {key:'4',label:'4° Semestre',color:'#5cbb6e'},
+  {key:'5',label:'5° Semestre',color:'#4ab8c4'},
+  {key:'6',label:'6° Semestre',color:'#5c8ae0'},
+  {key:'7',label:'7° Semestre',color:'#9b6be0'},
+  {key:'8',label:'8° Semestre',color:'#e06b8a'},
+  {key:'maestro',label:'Maestro/a',color:'#c0c0c0'},
+  {key:'otro',label:'Otro',color:'#888888'},
+];
+
+let selectedSemestre = null;
+let paused = false;
+
+// ── BUILD SEMESTRE GRID ──
+const grid = document.getElementById('semestre-grid');
+SEMESTRES.forEach(s=>{
+  const btn=document.createElement('button');
+  btn.className='sem-btn'; btn.dataset.key=s.key;
+  btn.style.setProperty('--sem-color',s.color);
+  btn.innerHTML=`<span class="sem-dot" style="background:${s.color}"></span>${s.label}`;
+  btn.addEventListener('click',()=>{
+    document.querySelectorAll('.sem-btn').forEach(b=>b.classList.remove('selected'));
+    btn.classList.add('selected');
+    selectedSemestre=s.key;
+    validateStep1();
+  });
+  grid.appendChild(btn);
+});
+
+// ── VALIDATION ──
+function onResp1Input(){
+  const ta=document.getElementById('resp1');
+  document.getElementById('char-count1').textContent=`${ta.value.length} / 200`;
+  validateStep1();
+}
+function onResp2Input(){
+  const ta=document.getElementById('resp2');
+  document.getElementById('char-count2').textContent=`${ta.value.length} / 200`;
+  validateStep2();
+}
+function validateStep1(){
+  const ok=selectedSemestre && document.getElementById('resp1').value.trim().length>=5;
+  document.getElementById('next-btn').disabled=!ok;
+}
+function validateStep2(){
+  const ok=document.getElementById('resp2').value.trim().length>=5;
+  document.getElementById('submit-btn').disabled=!ok;
+}
+
+// ── STEP 2: reveal ──
+function goStep2(){
+  if(paused){ showErr('err1','Las respuestas están pausadas.'); return; }
+  // Animate transition
+  document.getElementById('step1-section').style.display='none';
+  const s2=document.getElementById('step2-section');
+  s2.style.display='block';
+  s2.classList.add('slide-in');
+  // Update progress
+  document.getElementById('prog1').classList.remove('active');
+  document.getElementById('prog1').classList.add('done');
+  document.getElementById('prog2').classList.add('active');
+  document.getElementById('prog-label').textContent='Paso 2 de 2';
+  // Focus textarea
+  setTimeout(()=>document.getElementById('resp2').focus(),50);
+}
+
+// ── SUBMIT BOTH ──
+async function submitBoth(){
+  if(paused){ showErr('err2','Las respuestas están pausadas.'); return; }
+
+  const t1=document.getElementById('resp1').value.trim();
+  const t2=document.getElementById('resp2').value.trim();
+  const sem=selectedSemestre;
+
+  if(!sem||t1.length<5||t2.length<5) return;
+
+  const btn=document.getElementById('submit-btn');
+  btn.disabled=true;
+  btn.innerHTML='<span class="spinner"></span>Enviando…';
+
+  try{
+    // Two separate records, one per question node
+    await Promise.all([
+      db.ref('respuestas_p1').push({ texto:t1, semestre:sem, ts:Date.now() }),
+      db.ref('respuestas_p2').push({ texto:t2, semestre:sem, ts:Date.now() }),
+    ]);
+    // Update progress bar
+    document.getElementById('prog2').classList.remove('active');
+    document.getElementById('prog2').classList.add('done');
+    // Show success
+    document.getElementById('form-section').style.display='none';
+    document.getElementById('success-screen').style.display='flex';
+  }catch(e){
+    showErr('err2','Ocurrió un error al enviar. Intenta de nuevo.');
+    btn.disabled=false;
+    btn.innerHTML='Compartir mis voces ✦';
+  }
+}
+
+function showErr(id,msg){
+  const el=document.getElementById(id);
+  el.textContent=msg; el.style.display='block';
+  setTimeout(()=>el.style.display='none',4000);
+}
+
+// ── FIREBASE: questions & pause ──
+db.ref('pregunta1').on('value',snap=>{
+  document.getElementById('q1-text').textContent=snap.val()||'—';
+});
+db.ref('pregunta2').on('value',snap=>{
+  document.getElementById('q2-text').textContent=snap.val()||'—';
+});
+db.ref('pausado').on('value',snap=>{
+  paused=snap.val()===true;
+  if(paused){
+    document.getElementById('form-section').style.display='none';
+    document.getElementById('success-screen').style.display='none';
+    document.getElementById('paused-screen').style.display='flex';
+  } else {
+    // Only show form if success hasn't been shown yet
+    const success=document.getElementById('success-screen');
+    if(success.style.display!=='flex'){
+      document.getElementById('paused-screen').style.display='none';
+      document.getElementById('form-section').style.display='block';
+    }
+  }
+});
+</script>
+</body>
+</html>
